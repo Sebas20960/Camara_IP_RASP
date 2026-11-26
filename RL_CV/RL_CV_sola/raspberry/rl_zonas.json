@@ -1,0 +1,32 @@
+{
+  "_comentarios": {
+    "general": "Configuración del enlace YOLO -> semáforo (rl_conteos.py). Las claves que empiezan con '_' son notas.",
+    "activo": "false = el conteo funciona igual pero no abre el puerto del semáforo.",
+    "host_puerto": "Deben coincidir con 'enlace' de semaforo/pi.json (127.0.0.1:5050: los dos programas en la misma Pi).",
+    "calles": "Qué cámara (su nombre en conteo4: Cam1..Cam4 o el que le pongas, p. ej. Norte=IP:8080) mira cada calle. N/S = Universitaria (confirmar en campo cuál es cuál), E = Dulanto, O = La Mar. Una cámara por calle.",
+    "categorias": "Clases que cuentan (del modelo de 5 clases: carro, moto, bus, pesado, especial). Contrato: car, bus, truck -> carro, bus, pesado (+ especial = ambulancias/patrulleros, que en SUMO serían autos). 'moto' está PENDIENTE: agrégala solo si la demanda de SUMO del entrenamiento incluye motos.",
+    "zonas": "Polígono por cámara con los 60 m antes de la línea de parada, solo carriles de ENTRADA (fuera: el interior del cruce, carriles de salida y la curva de los desvíos). Puntos [x, y] como fracción del ancho y alto de la imagen (0..1). Un vehículo cuenta si el centro del borde inferior de su caja cae dentro. null o sin entrada = todo el cuadro. Se dibujan con laptop/definir_zonas.py.",
+    "intervalo_s": "Cada cuánto se manda un conteo (contrato: <= 5 s; la Pi toma el último cada 5 s).",
+    "retraso_min_s": "Edad mínima del conteo al mandarlo. El agente se entrenó con conteos de 2 s de antigüedad (config.json: sumo.retraso_conteo_s = 2) y el contrato pide 2-6 s. 0 = lo más fresco posible.",
+    "max_edad_s": "Si el último análisis de la cámara de una calle es más viejo que esto (además del retraso), NO se manda conteo: cámara caída. El semáforo pasa a respaldo a los 15 s y vuelve solo.",
+    "interfaz": "true = muestra el semáforo (luces, fase, decisión del agente) en la laptop, en el dashboard web y en la ventana de conteo4 (--pantalla). false = no se muestra (el semáforo funciona igual). Necesita enviar_luces = true en semaforo/pi.json.",
+    "fin_al_cerrar": "true = al cerrarse el conteo se manda 'fin' y principal_pi.py se DETIENE. false (recomendado) = solo se corta la conexión: el semáforo sigue con su ciclo de respaldo y se reconecta cuando el conteo vuelve."
+  },
+  "activo": true,
+  "host": "127.0.0.1",
+  "puerto": 5050,
+  "calles": {"N": "Cam1", "S": "Cam2", "E": "Cam3", "O": "Cam4"},
+  "categorias": ["carro", "bus", "pesado", "especial"],
+  "zonas": {
+    "Cam1": null,
+    "Cam2": null,
+    "Cam3": null,
+    "Cam4": null
+  },
+  "intervalo_s": 1.0,
+  "retraso_min_s": 2.0,
+  "max_edad_s": 4.0,
+  "fin_al_cerrar": false,
+
+  "interfaz": true
+}

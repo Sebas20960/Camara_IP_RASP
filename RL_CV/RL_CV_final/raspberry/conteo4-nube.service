@@ -1,0 +1,32 @@
+# ⚠️ OBSOLETO: ahora se usa el AGENTE (bash instalar_pi.sh), que arranca y vigila el conteo
+#    y permite manejarlo desde la laptop y la web. NO instales los dos a la vez (contarías
+#    dos veces). instalar_pi.sh apaga este servicio si lo tenías. Se deja solo como referencia.
+#
+# Servicio para que la Raspberry arranque conteo4_nube.py SOLA al encenderse.
+#
+# 1) Cambia 'pi' por tu usuario y las rutas por las tuyas (y las cámaras al final de ExecStart
+#    si no usas la lista CAMARAS de conteo4.py). Si instalaste ultralytics en un entorno
+#    virtual (lo normal en Raspberry Pi OS Bookworm), cambia /usr/bin/python3 por el python
+#    de ese entorno, p. ej. /home/pi/yolo_env/bin/python
+# 2) sudo cp conteo4-nube.service /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now conteo4-nube
+# 3) Ver qué hace:   sudo journalctl -u conteo4-nube -f
+#    Detenerlo:      sudo systemctl stop conteo4-nube
+#
+# Corre SIN ventana (--sin-pantalla): el video se ve en el dashboard de la nube.
+[Unit]
+Description=conteo4 - conteo de vehiculos + envio a la nube
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/V_final_final/raspberry
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/pi/V_final_final/raspberry/conteo4_nube.py --sin-pantalla
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

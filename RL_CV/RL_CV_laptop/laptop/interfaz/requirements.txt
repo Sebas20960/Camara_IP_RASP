@@ -1,0 +1,5 @@
+PySide6
+pyqtgraph
+websockets>=13
+numpy
+opencv-python

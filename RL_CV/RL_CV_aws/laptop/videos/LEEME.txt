@@ -1,0 +1,14 @@
+Carpeta para los videos de las camaras simuladas
+================================================
+
+Pon aqui tus videos .mp4 (uno por camara, maximo 4). iniciar_camaras.bat los
+toma en orden alfabetico: el 1ro es Cam1 (puerto 8080), el 2do Cam2 (8081)...
+
+Si esta carpeta no tiene ningun .mp4, iniciar_camaras.bat usa los de
+V_final_final\laptop\videos (prueba_1.mp4 ... prueba_4.mp4).
+
+Consejo: los videos grandes (1080p / 4K, como prueba_1.mp4) gastan mucha CPU
+de la laptop. Reducelos una vez a 640 px / 10 FPS con:
+    python preparar_videos.py MI_VIDEO.mp4 --salida videos
+(desde la carpeta laptop). La Pi recibe lo mismo, porque camfalsa4.py igual
+los reduce a 640 px antes de enviarlos.

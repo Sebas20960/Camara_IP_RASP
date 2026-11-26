@@ -1,0 +1,8 @@
+# Librerías para la Raspberry (instalar en el MISMO entorno donde está ultralytics):
+#     pip install -r requirements.txt
+ultralytics
+ncnn
+opencv-python
+numpy
+pyyaml
+websockets

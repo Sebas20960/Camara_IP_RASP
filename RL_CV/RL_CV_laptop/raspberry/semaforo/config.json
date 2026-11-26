@@ -1,0 +1,167 @@
+{
+  "_comentarios": {
+    "general": "Modelo A (con la fase E+O). Copia de config.json con los cambios acordados el 6 nov 2026 (ver claude/decisiones_chat_2026-11-06.md). Las claves que empiezan con '_' son notas: el programa las ignora. Va en la misma carpeta que config.json (las rutas de 'sumo' son relativas a la carpeta de este archivo).",
+    "cambios_respecto_a_config_json": "rojo máximo 60 -> 90 s; verde mínimo N+S 15 -> 30 s; E+O 15 -> 20 s; solo E y solo O: mínimo 10 -> 15 s y máximo 15 -> 45 s; episodios de 3600 -> 10800 s (perfil de demanda de 3 h); alpha 1/60 por defecto; evaluación cada 20 episodios; sumo.red = red_sumo_v2; se cuenta la espera de los vehículos que no logran entrar.",
+    "fases": "Numeradas 1..6 como en decisiones.md; la acción del agente es id - 1. verde_max_s = null: sin límite propio (lo acota el rojo máximo de las otras calles: con 90 s, unos 83 s).",
+    "verdes_minimos": "N+S 30 s: decisión propia del usuario (la fuente respalda ~20-25 s: peatones que cruzan La Mar o Dulanto, 7 s + 14 m / 1,07 m/s, FHWA STM). E+O 20 s: peatones que cruzan Universitaria en dos etapas por el separador (FHWA STM; anchos estimados). Solo E y solo O 15 s: criterio propio.",
+    "verde_max_solo_E_O": "45 s: el plan real del cruce usa 48-50 s en fases de una sola calle (split phasing, FHWA STM). El escudo los acorta si el rojo máximo lo exige.",
+    "rojo_max_s": "Por calle, contado desde que termina el ámbar. 90 s: unos 45 s de espera peatonal media, nivel E del HCM (Rouphail et al., 1998; adaptación ya declarada en decisiones.md).",
+    "intervalo_frames_s": "5 s (decisión del usuario, 5 nov 2026). Sin cambios.",
+    "provisionales": "observador.alcance_camara_m (60 m) y observador.cap_cola_veh (30) siguen provisionales hasta tener las grabaciones.",
+    "huella": "Cambian las fases y el rojo máximo: un modelo entrenado con config.json no sirve con este archivo (y al revés)."
+  },
+  "calles": [
+    "N",
+    "S",
+    "E",
+    "O"
+  ],
+  "fases": [
+    {
+      "id": 1,
+      "nombre": "Norte + Sur",
+      "verde": [
+        "N",
+        "S"
+      ],
+      "verde_min_s": 30,
+      "verde_max_s": null
+    },
+    {
+      "id": 2,
+      "nombre": "Este + Oeste",
+      "verde": [
+        "E",
+        "O"
+      ],
+      "verde_min_s": 20,
+      "verde_max_s": null
+    },
+    {
+      "id": 3,
+      "nombre": "Solo Norte",
+      "verde": [
+        "N"
+      ],
+      "verde_min_s": 10,
+      "verde_max_s": 15
+    },
+    {
+      "id": 4,
+      "nombre": "Solo Sur",
+      "verde": [
+        "S"
+      ],
+      "verde_min_s": 10,
+      "verde_max_s": 15
+    },
+    {
+      "id": 5,
+      "nombre": "Solo Este",
+      "verde": [
+        "E"
+      ],
+      "verde_min_s": 15,
+      "verde_max_s": 45
+    },
+    {
+      "id": 6,
+      "nombre": "Solo Oeste",
+      "verde": [
+        "O"
+      ],
+      "verde_min_s": 15,
+      "verde_max_s": 45
+    }
+  ],
+  "controlador": {
+    "ambar_s": 3,
+    "despeje_s": 2,
+    "rojo_max_s": 90,
+    "intervalo_decision_s": 10,
+    "fase_inicial": 1
+  },
+  "observador": {
+    "intervalo_frames_s": 5.0,
+    "alcance_camara_m": 60,
+    "cap_cola_veh": 30
+  },
+  "politica": {
+    "modelo": "modelo.npz"
+  },
+  "entrenamiento": {
+    "_nota": "No lo usa semaforo.py ni entra en la huella: lo lee entrenamiento/entrenar.py.",
+    "duracion_episodio_s": 10800,
+    "_duracion_episodio_s": "3 h: el perfil de demanda (calentamiento, subida, pico, bajada y valle) dura 3 h. Debe ser igual a perfiles.duracion_s de demanda_sumo.py.",
+    "episodios": 200,
+    "_episodios": "Corrida completa. El piloto se hace aparte, en otra carpeta, con --episodios 100 (ε se reparte sobre los episodios pedidos en la primera corrida; no continuar el piloto con --continuar si se quiere el calendario de 200).",
+    "alpha": 0.016666666666666666,
+    "gamma_1s": 0.999,
+    "_gamma_1s": "Sin cambios (pendiente: 0,999 o 0,998).",
+    "red_oculta": [
+      32,
+      32
+    ],
+    "tasa_aprendizaje": 0.001,
+    "tamano_lote": 32,
+    "epsilon_inicio": 0.5,
+    "epsilon_fin": 0.05,
+    "fraccion_epsilon": 0.6,
+    "capacidad_memoria": 50000,
+    "inicio_aprendizaje": 1000,
+    "tau": 0.005,
+    "perdida": "huber",
+    "huber_delta": 1.0,
+    "recorte_gradiente": 10.0,
+    "actualizaciones_por_decision": 1,
+    "terminar_si_cola_total_supera_veh": null,
+    "evaluacion": {
+      "cada_episodios": 20,
+      "episodios": 3
+    },
+    "_evaluacion": "Cada evaluación son 3 episodios de 3 h (semillas 7000-7002 = perfiles de validación). Cada 20 episodios para no sumar ~30 % de cómputo.",
+    "semilla_agente": 42,
+    "dispositivo": "cpu",
+    "sumo_waiting_time_memory_s": 10800,
+    "_sumo_waiting_time_memory_s": "Debe ser >= duracion_episodio_s para que SUMO no olvide la espera acumulada.",
+    "barridos": {
+      "intervalo_decision_s": [
+        5,
+        10,
+        15,
+        20
+      ],
+      "alpha": [
+        0,
+        0.016666666666666666,
+        0.03333333333333333,
+        0.5,
+        2
+      ],
+      "rojo_max_s": [
+        60,
+        90
+      ],
+      "verde_max_una_calle_s": [
+        15,
+        20,
+        25
+      ]
+    },
+    "pop_art": true,
+    "pop_art_beta": 0.0003
+  },
+  "sumo": {
+    "_nota": "Opciones de sim_sumo.py. No las usa semaforo.py ni entran en la huella. Rutas relativas a la carpeta de este archivo.",
+    "red": "red_sumo_v2_60m",
+    "_red": "Red y demanda nuevas (perfiles de 3 h). La de config.json (red_sumo/) queda intacta para el Entrenamiento 1.",
+    "gui": false,
+    "retardo_gui_ms": 100,
+    "retraso_conteo_s": 2,
+    "contar_espera_para_entrar": true,
+    "_contar_espera_para_entrar": "true: los vehículos que no logran entrar a la red (cola hasta el borde) cuentan como en espera, en la recompensa y en las métricas. Sin esto, con el pico de 1,5 el agente podría 'esconder' espera bloqueando la entrada. Adaptación propia: conserva la identidad de las Ec. 5 y 11 del paper (la espera total de cada vehículo incluye la que pasó fuera de la red).",
+    "perfil": null,
+    "_perfil": "null = el perfil de cada episodio sale de la semilla (entrenamiento, validación o evaluación). Un nombre (por ejemplo \"nominal\") fija el mismo perfil para todos los episodios: solo para pruebas.",
+    "metricas_csv": "salidas_sumo/metricas_A_popart_60m.csv"
+  }
+}

@@ -1,0 +1,14 @@
+# generados al correr
+__pycache__/
+*.pyc
+*.db
+*.db-journal
+registros/
+agente_estado.json
+*.antes_paralelo
+*.log
+.clave_control
+# videos de prueba (pesados): cópialos a laptop/videos/
+*.mp4
+*.avi
+*.mkv

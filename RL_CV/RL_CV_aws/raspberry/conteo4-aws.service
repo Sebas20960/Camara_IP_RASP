@@ -1,0 +1,40 @@
+# Servicio para que la Raspberry arranque conteo4_aws.py SOLA al encenderse.
+#
+# 1) Revisa y, si hace falta, cambia:
+#      - User=pi                 -> tu usuario (comando: whoami)
+#      - /home/pi/V_final_aws/raspberry -> la carpeta donde copiaste 'raspberry'
+#      - /usr/bin/python3        -> si instalaste ultralytics en un entorno virtual (lo normal
+#                                   en Raspberry Pi OS Bookworm), pon el python de ese
+#                                   entorno, p. ej. /home/pi/yolo_env/bin/python
+#      - Las cámaras se toman de CAMARAS en conteo4.py; si quieres otras, agrégalas al final
+#        de ExecStart (ej. ... --sin-pantalla 192.168.1.33:8080 192.168.1.33:8081).
+#    Para editarlo en la Pi:   nano ~/V_final_aws/raspberry/conteo4-aws.service
+# 2) Instalarlo y activarlo:
+#      sudo cp ~/V_final_aws/raspberry/conteo4-aws.service /etc/systemd/system/
+#      sudo systemctl daemon-reload
+#      sudo systemctl enable --now conteo4-aws
+# 3) Ver qué hace:   sudo journalctl -u conteo4-aws -f      (Ctrl+C para salir)
+#    Detenerlo:      sudo systemctl stop conteo4-aws
+#    Que ya no arranque solo:  sudo systemctl disable --now conteo4-aws
+#    Si cambias este archivo, repite el paso 2 (cp + daemon-reload) y luego:
+#                    sudo systemctl restart conteo4-aws
+#
+# Corre SIN ventana (--sin-pantalla): el video se ve en el dashboard http://3.144.43.2
+# Nice=5 le da un poco menos de prioridad que al sistema (SSH sigue respondiendo aunque
+# YOLO use 3 núcleos al 100 %).
+[Unit]
+Description=conteo4 - conteo de vehiculos + envio a AWS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/V_final_aws/raspberry
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/pi/V_final_aws/raspberry/conteo4_aws.py --sin-pantalla
+Nice=5
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

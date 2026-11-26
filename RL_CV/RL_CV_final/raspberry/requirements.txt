@@ -1,0 +1,6 @@
+ultralytics
+ncnn
+opencv-python
+numpy
+pyyaml
+websockets

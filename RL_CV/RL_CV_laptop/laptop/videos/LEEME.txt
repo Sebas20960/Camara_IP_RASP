@@ -1,0 +1,9 @@
+Carpeta para tus videos de prueba (las cámaras simuladas).
+
+- Pon aquí 4 videos llamados prueba_1.mp4 ... prueba_4.mp4 (o cualquier nombre y los eliges
+  con "Elegir..." en la pestaña Conexión del programa).
+- O usa directamente los que ya tienes en  V_final_final\laptop\videos  (si esta carpeta está
+  vacía, el programa los propone solo).
+- Si son videos grandes (p. ej. de YouTube), redúcelos primero a 640 px / 10 FPS:
+      cd ..
+      python preparar_videos.py MI_VIDEO.mp4 --salida videos

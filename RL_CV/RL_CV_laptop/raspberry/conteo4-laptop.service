@@ -1,0 +1,31 @@
+# Servicio para que la Raspberry arranque conteo4_laptop.py SOLA al encenderse.
+#
+# 1) Cambia 'pi' por tu usuario y las rutas por las tuyas (y agrega las cámaras al final de
+#    ExecStart si no usas la lista CAMARAS de conteo4.py). Si instalaste ultralytics en un
+#    entorno virtual (lo normal en Raspberry Pi OS Bookworm), cambia /usr/bin/python3 por el
+#    python de ese entorno, p. ej. /home/pi/yolo_env/bin/python
+# 2) sudo cp conteo4-laptop.service /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now conteo4-laptop
+# 3) Ver qué hace:   sudo journalctl -u conteo4-laptop -f
+#    Detenerlo:      sudo systemctl stop conteo4-laptop
+#    Que ya no arranque solo:  sudo systemctl disable conteo4-laptop
+#
+# Corre SIN ventana (--sin-pantalla): el video se ve en el programa de la laptop.
+# Si la laptop aún no está encendida no pasa nada: la Pi reintenta sola (y guarda los datos);
+# si las cámaras no responden, también reintenta cada pocos segundos.
+[Unit]
+Description=conteo4 - conteo de vehiculos + envio a la laptop
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/V_final_laptop/raspberry
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/pi/V_final_laptop/raspberry/conteo4_laptop.py --sin-pantalla
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

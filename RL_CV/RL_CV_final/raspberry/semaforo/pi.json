@@ -1,0 +1,42 @@
+{
+  "_comentarios": {
+    "general": "Configuración propia de la Pi (principal_pi.py). Va junto a config.json y modelo.npz, pero aparte: al cambiar de modelo solo se reemplazan esos dos archivos. Las claves que empiezan con '_' son notas.",
+    "gpio": "Numeración BCM (GPIOxx), no el número de pin físico. Un pin por luz y calle; cada pin activa un transistor que enciende un LED. R rojo, A ámbar, V verde.",
+    "gpio_activo_en_alto": "true: pin en alto = LED encendido (transistor NPN con el emisor a GND, lo habitual). false: transistor PNP en el lado positivo.",
+    "gpio_oeste": "GPIO5 y GPIO6 tienen pull-up interno al arrancar (hoja de datos BCM2711): el rojo y el ámbar del Oeste pueden encenderse débilmente hasta que arranca el programa. Solución: resistencia de base a GND de 4,7 kΩ o menos, o pasar a pines libres del 9 al 27 (por ejemplo 12, 19 o 26). principal_pi.py lo avisa al arrancar.",
+    "enlace": "host y puerto de la fuente de conteos. Pruebas en una sola PC: 127.0.0.1. Pi con la PC por cable Ethernet: la IP de la PC (y en la PC, puente_sumo.py --host 0.0.0.0). Con YOLO en la misma Pi: 127.0.0.1.",
+    "enviar_luces": "true con SUMO (el simulador aplica las luces de la Pi: circuito cerrado). Con YOLO (RL_CV): true para VER el semáforo en las interfaces (laptop, web, ventana de conteo4); cada segundo manda las luces y un resumen (control, fase, decisión del agente). No cambia el control: el conteo solo lo muestra. false = no se muestra.",
+    "respaldo": "Ciclo fijo si pasan sin_conteos_s sin conteos nuevos (solo en tiempo real). plan: fases por su id de config.json y verde objetivo; el verde real se redondea a verde mínimo + k·Δ. 30/30 = mejor plan fijo de prueba_perfil.py (perfil nominal). volver_tras_s null = rojo máximo + intervalo entre conteos.",
+    "registro": "Carpeta del CSV de cada corrida (relativa a este archivo); null = sin registro."
+  },
+
+  "gpio": {
+    "N": {"R": 17, "A": 27, "V": 22},
+    "S": {"R": 16, "A": 20, "V": 21},
+    "E": {"R": 23, "A": 24, "V": 25},
+    "O": {"R": 5,  "A": 6,  "V": 13}
+  },
+  "gpio_activo_en_alto": true,
+
+  "enlace": {
+    "host": "127.0.0.1",
+    "puerto": 5050,
+    "enviar_luces": true,
+    "espera_respuesta_s": 30,
+    "espera_conexion_s": 60,
+    "reintento_s": 5
+  },
+
+  "respaldo": {
+    "sin_conteos_s": 15,
+    "plan": [
+      {"fase": 1, "verde_s": 30},
+      {"fase": 2, "verde_s": 30}
+    ],
+    "volver_tras_s": null
+  },
+
+  "registro": {
+    "carpeta": "registros"
+  }
+}

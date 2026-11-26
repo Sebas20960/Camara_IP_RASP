@@ -1,0 +1,31 @@
+# Servicio para que la Raspberry arranque conteo4.py SOLA al encenderse (V_final_sola).
+#
+# 1) Cambia 'pi' por tu usuario y las rutas por las tuyas (y las cámaras al final de ExecStart
+#    si no usas la lista CAMARAS de conteo4.py). Si instalaste ultralytics en un entorno
+#    virtual (lo normal en Raspberry Pi OS Bookworm), cambia /usr/bin/python3 por el python
+#    de ese entorno, p. ej. /home/pi/yolo_env/bin/python
+# 2) sudo cp conteo4.service /etc/systemd/system/
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable --now conteo4
+# 3) Ver qué hace:   sudo journalctl -u conteo4 -f
+#    Detenerlo:      sudo systemctl stop conteo4
+#    Que ya no arranque solo:  sudo systemctl disable --now conteo4
+#
+# Corre SIN ventana (--sin-pantalla): los resultados quedan en el registro (journalctl, las
+# líneas [ESTADO]) y en el CSV por minuto: /home/pi/V_final_sola/raspberry/registros/
+# Si se cae, systemd lo vuelve a lanzar a los 5 s (Restart=always).
+[Unit]
+Description=conteo4 - conteo de vehiculos con YOLO (V_final_sola, sin interfaz)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/V_final_sola/raspberry
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 /home/pi/V_final_sola/raspberry/conteo4.py --sin-pantalla
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

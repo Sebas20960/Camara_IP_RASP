@@ -1,0 +1,1105 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor de tráfico</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    color-scheme: light;
+    --bg: #f4f4f2;
+    --surface-1: #fcfcfb;
+    --surface-2: #f0efec;
+    --border: #e2e1dc;
+    --grid: #ebeae6;
+    --text-primary: #0b0b0b;
+    --text-secondary: #52514e;
+    --text-muted: #77766f;
+    --bar-neutral: #8a8984;
+    --series-1: #2a78d6;
+    --series-2: #eb6834;
+    --series-3: #1baf7a;
+    --series-4: #eda100;
+    --good: #1f8a3b;
+    --critical: #c93838;
+    --warning: #b26b00;
+    --video-bg: #101010;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      color-scheme: dark;
+      --bg: #111110;
+      --surface-1: #1a1a19;
+      --surface-2: #232321;
+      --border: #2e2e2b;
+      --grid: #2a2a28;
+      --text-primary: #f0efec;
+      --text-secondary: #c3c2b7;
+      --text-muted: #8f8e86;
+      --bar-neutral: #9d9c95;
+      --series-1: #3987e5;
+      --series-2: #d95926;
+      --series-3: #199e70;
+      --series-4: #c98500;
+      --good: #3fb75e;
+      --critical: #f06a6a;
+      --warning: #e0a030;
+      --video-bg: #000;
+    }
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #111110; --surface-1: #1a1a19; --surface-2: #232321; --border: #2e2e2b; --grid: #2a2a28;
+    --text-primary: #f0efec; --text-secondary: #c3c2b7; --text-muted: #8f8e86; --bar-neutral: #9d9c95;
+    --series-1: #3987e5; --series-2: #d95926; --series-3: #199e70; --series-4: #c98500;
+    --good: #3fb75e; --critical: #f06a6a; --warning: #e0a030; --video-bg: #000;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text-primary);
+    font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  .contenedor { max-width: 1280px; margin: 0 auto; padding: 16px; }
+  header {
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 20px; margin: 0; font-weight: 650; letter-spacing: -0.01em; }
+  h2 { font-size: 14px; margin: 0; font-weight: 600; }
+  .sub { color: var(--text-secondary); font-size: 13px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+    background: var(--surface-1); border: 1px solid var(--border); font-size: 12.5px;
+    color: var(--text-secondary); white-space: nowrap;
+  }
+  .chip strong { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--text-muted); flex: none; }
+  .ok .punto { background: var(--good); }
+  .mal .punto { background: var(--critical); }
+  .tarjeta {
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 12px; padding: 14px;
+    min-width: 0;
+  }
+  .cab { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  .fila1 { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+  @media (max-width: 900px) { .fila1 { grid-template-columns: minmax(0, 1fr); } }
+
+  /* video */
+  .video {
+    position: relative; background: var(--video-bg); border-radius: 8px; overflow: hidden;
+    aspect-ratio: 16 / 9;
+  }
+  .mosaico {
+    position: absolute; inset: 0; display: grid; gap: 2px;
+    grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr;
+  }
+  .mosaico.n1 { grid-template-columns: 1fr; grid-template-rows: 1fr; }
+  .mosaico.n2 { grid-template-rows: 1fr; }
+  .recuadro { position: relative; background: #000; min-width: 0; min-height: 0; overflow: hidden; }
+  .recuadro canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .recuadro .rotulo {
+    position: absolute; left: 0; right: 0; top: 0; display: flex; justify-content: space-between; gap: 8px;
+    padding: 3px 8px 10px; font-size: 12px; color: #f0efec; pointer-events: none;
+    background: linear-gradient(rgba(0,0,0,.65), rgba(0,0,0,0)); font-variant-numeric: tabular-nums;
+  }
+  .recuadro .rotulo b { font-weight: 600; }
+  .recuadro .sinsenal {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #f06a6a; font-size: 13px; background: rgba(20,20,20,.85);
+  }
+  .recuadro .sinsenal[hidden] { display: none; }
+  .video .aviso {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    color: #c9c8c2; font-size: 14px; text-align: center; padding: 16px; background: rgba(0,0,0,.55);
+  }
+  .video .aviso[hidden] { display: none; }
+  button {
+    font: inherit; font-size: 13px; padding: 6px 12px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-2); color: var(--text-primary);
+  }
+  button:hover { border-color: var(--text-muted); }
+  button[aria-pressed="true"] { background: var(--text-primary); color: var(--surface-1); border-color: var(--text-primary); }
+  a.boton {
+    font-size: 13px; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-2); color: var(--text-primary); text-decoration: none; white-space: nowrap;
+  }
+
+  /* KPIs */
+  .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .kpi { background: var(--surface-2); border-radius: 10px; padding: 10px 12px; }
+  .kpi .et { color: var(--text-secondary); font-size: 12.5px; }
+  .kpi .val { font-size: 28px; font-weight: 650; font-variant-numeric: tabular-nums; line-height: 1.15; }
+  .kpi.hero { grid-column: 1 / -1; }
+  .kpi.hero .val { font-size: 44px; }
+  .cats { margin-top: 12px; display: grid; gap: 6px; }
+  .cat { display: grid; grid-template-columns: 72px 1fr 34px; align-items: center; gap: 8px; font-size: 13px; }
+  .cat .barra { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+  .cat .barra i { display: block; height: 100%; background: var(--bar-neutral); border-radius: 0 4px 4px 0; width: 0; transition: width .4s; }
+  .cat .n { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+
+  /* cámaras */
+  .camaras { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 16px; }
+  .cam .nombre { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+  .cam .muestra { width: 12px; height: 3px; border-radius: 2px; flex: none; }
+  .cam .numeros { display: flex; gap: 18px; margin: 8px 0 6px; }
+  .cam .numeros .val { font-size: 24px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .cam .numeros .et { color: var(--text-secondary); font-size: 12px; }
+  .cam .detalle { color: var(--text-secondary); font-size: 12.5px; }
+  .cam .estado { font-size: 12px; }
+
+  /* historial */
+  .historial { margin-top: 16px; }
+  .controles { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .grupo { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+  .graficas { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 1.2fr); gap: 16px; }
+  @media (max-width: 900px) { .graficas { grid-template-columns: minmax(0, 1fr); } }
+  .lienzo { position: relative; height: 300px; }
+  .lienzo.chico { height: 240px; }
+  .nota { color: var(--text-muted); font-size: 12px; margin-top: 8px; }
+  .vacio { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--text-muted); text-align: center; padding: 16px; }
+  .vacio[hidden] { display: none; }
+  .tabla-wrap { overflow-x: auto; margin-top: 12px; max-height: 320px; overflow-y: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  th, td { padding: 5px 8px; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th:first-child, td:first-child { text-align: left; }
+  th { color: var(--text-secondary); font-weight: 600; position: sticky; top: 0; background: var(--surface-1); }
+  footer { color: var(--text-muted); font-size: 12px; margin: 16px 0 4px; text-align: center; }
+
+  /* semáforo RL */
+  :root { --via: #dedcd6; --via-borde: #c9c7c0; --cabeza: #1d1d1c; --lampara: #3a3a37; --fase-txt: #ffffff; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --via: #262624; --via-borde: #3a3a37; --cabeza: #0c0c0b; --lampara: #2a2a28; }
+  }
+  :root[data-theme="dark"] { --via: #262624; --via-borde: #3a3a37; --cabeza: #0c0c0b; --lampara: #2a2a28; }
+  .sem { margin-top: 16px; }
+  .sem[hidden] { display: none; }
+  .sem-aviso { background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--text-primary);
+    border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent); border-radius: 8px;
+    padding: 8px 11px; font-size: 13px; margin-bottom: 12px; }
+  .sem-aviso[hidden] { display: none; }
+  .sem-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+  @media (max-width: 900px) { .sem-grid { grid-template-columns: minmax(0, 1fr); } }
+  .sem-cruce { background: var(--surface-2); border-radius: 10px; overflow: hidden; }
+  .sem-cruce svg { display: block; width: 100%; height: auto; }
+  .sem-cruce text { font-family: inherit; }
+  .sem-kpis { grid-template-columns: 1fr 1fr; }
+  .sem-kpis .kpi .val { font-size: 22px; }
+  .sem-kpis .det { color: var(--text-muted); font-size: 12px; margin-top: 2px; }
+  .prog { height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; margin-top: 6px; }
+  .prog i { display: block; height: 100%; width: 0; background: var(--good); border-radius: 3px; transition: width .9s linear; }
+  .sem h3 { font-size: 13.5px; font-weight: 600; margin: 14px 0 6px; display: flex; justify-content: space-between; gap: 8px; }
+  .sem-dec { font-size: 13px; color: var(--text-secondary); min-height: 1.4em; }
+  .sem-q { display: grid; gap: 5px; margin-top: 8px; }
+  .qf { display: grid; grid-template-columns: 4px 96px minmax(0, 1fr) 44px 112px; gap: 8px; align-items: center; font-size: 12.5px; }
+  .qf .m { width: 4px; height: 12px; border-radius: 2px; }
+  .qf .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-secondary); }
+  .qf.el .n { color: var(--text-primary); font-weight: 600; }
+  .qf.np .n, .qf.np .v { color: var(--text-muted); }
+  .qf .b { height: 8px; background: var(--surface-2); border-radius: 4px; overflow: hidden; }
+  .qf .b i { display: block; height: 100%; border-radius: 4px; background: var(--bar-neutral); }
+  .qf.el .b i { background: var(--good); }
+  .qf.an .b i { background: var(--warning); }
+  .qf.np .b i { background: var(--border); }
+  .qf .v { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+  .qf .tag { justify-self: start; font-size: 11px; padding: 1px 8px; border-radius: 999px; white-space: nowrap; }
+  .qf.el .tag { color: var(--good); background: color-mix(in srgb, var(--good) 14%, transparent); }
+  .qf.an .tag { color: var(--warning); background: color-mix(in srgb, var(--warning) 14%, transparent); }
+  .qf.np .tag { color: var(--text-muted); background: var(--surface-2); }
+  .sem-abajo { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 16px; margin-top: 14px; }
+  @media (max-width: 900px) { .sem-abajo { grid-template-columns: minmax(0, 1fr); } }
+  .sem-linea { position: relative; height: 92px; }
+  .sem-linea canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .leyenda { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--text-secondary); margin-top: 6px; }
+  .leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+  .leyenda i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+  .sem-tabla { max-height: 170px; overflow-y: auto; }
+  .sem-tabla td:nth-child(3) { text-align: left; }
+  .sem-tabla th:nth-child(3) { text-align: left; }
+</style>
+</head>
+<body>
+<div class="contenedor">
+  <header>
+    <div>
+      <h1>Monitor de tráfico</h1>
+      <div class="sub">Conteo de vehículos con YOLO en Raspberry Pi 4</div>
+    </div>
+    <div class="chips" aria-live="polite">
+      <span class="chip mal" id="chipPi"><span class="punto"></span><span id="txtPi">Conectando…</span></span>
+      <span class="chip">Actualizado <strong id="txtHace">–</strong></span>
+      <span class="chip">CPU <strong id="txtTemp">–</strong></span>
+      <span class="chip">YOLO <strong id="txtFps">–</strong></span>
+      <span class="chip" id="chipSem" hidden><span class="punto"></span>Semáforo <strong id="txtSem">–</strong></span>
+      <span class="chip">Viendo <strong id="txtVisores">–</strong></span>
+    </div>
+  </header>
+
+  <section class="fila1">
+    <div class="tarjeta">
+      <div class="cab">
+        <h2>Video en vivo con detecciones</h2>
+        <div class="controles">
+          <span class="sub" id="txtImgs"></span>
+          <button id="btnVideo" aria-pressed="false">Pausar video</button>
+        </div>
+      </div>
+      <div class="video">
+        <div class="mosaico" id="mosaico" role="img" aria-label="Video de las cámaras con las cajas de YOLO"></div>
+        <div class="aviso" id="avisoVideo">Esperando video…</div>
+      </div>
+      <div class="nota">Video de las cámaras con ~1 s de retraso: así las cajas de YOLO (≈2 análisis por segundo por cámara) se mueven suaves entre un análisis y otro. El video solo se transmite mientras alguien lo está viendo.</div>
+    </div>
+
+    <div class="tarjeta">
+      <div class="cab"><h2>Ahora</h2></div>
+      <div class="kpis">
+        <div class="kpi hero"><div class="et">Vehículos en imagen (todas las cámaras)</div><div class="val" id="kTotal">–</div></div>
+        <div class="kpi"><div class="et">Pasaron en la última hora</div><div class="val" id="kHora">–</div></div>
+        <div class="kpi"><div class="et">Pasaron hoy</div><div class="val" id="kHoy">–</div></div>
+      </div>
+      <div class="cats" id="catsAhora" aria-label="Vehículos en imagen por categoría"></div>
+    </div>
+  </section>
+
+  <section class="tarjeta sem" id="secSem" hidden aria-labelledby="tituloSem">
+    <div class="cab">
+      <h2 id="tituloSem">Semáforo inteligente (RL)</h2>
+      <span class="chip" id="chipSemCtl"><span class="punto"></span><span id="txtSemCtl">–</span></span>
+    </div>
+    <div class="sem-aviso" id="semAviso" role="status" hidden></div>
+    <div class="sem-grid">
+      <div class="sem-cruce"><svg id="svgCruce" viewBox="0 0 440 360" role="img" aria-label="Cruce visto desde arriba con la luz de cada calle"></svg></div>
+      <div>
+        <div class="kpis sem-kpis">
+          <div class="kpi"><div class="et">Fase actual</div><div class="val" id="semFase">–</div><div class="det" id="semFaseDet"></div></div>
+          <div class="kpi"><div class="et">Próxima decisión</div><div class="val" id="semProx">–</div><div class="prog"><i id="semProg"></i></div></div>
+          <div class="kpi"><div class="et">Quién controla</div><div class="val" id="semCtl">–</div><div class="det" id="semCtlDet"></div></div>
+          <div class="kpi"><div class="et">Conteos que ve el agente</div><div class="val" id="semConteos">–</div><div class="det" id="semConteosDet"></div></div>
+        </div>
+        <h3>Última decisión del agente <span class="sub" id="semDecHace"></span></h3>
+        <div class="sem-dec" id="semDecTxt">–</div>
+        <div class="sem-q" id="semQ"></div>
+        <div class="nota">Valor Q = cuánto espera ganar el agente con cada fase. Elige la más alta entre las permitidas por las reglas de seguridad (verde mínimo y máximo, rojo máximo).</div>
+      </div>
+    </div>
+    <div class="sem-abajo">
+      <div>
+        <h3>Últimos 15 minutos</h3>
+        <div class="sem-linea"><canvas id="cvSemLinea" aria-label="Fase en verde y modo de control de los últimos 15 minutos"></canvas></div>
+        <div class="leyenda" id="semLeyenda"></div>
+      </div>
+      <div>
+        <h3>Decisiones recientes</h3>
+        <div class="sem-tabla"><table id="semTabla"><thead><tr><th>Hora</th><th>Decidió</th><th>Resultado</th><th>Por</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="camaras" id="camaras"></section>
+
+  <section class="tarjeta historial">
+    <div class="cab">
+      <h2 id="tituloHist">Historial</h2>
+      <div class="controles">
+        <div class="grupo" role="group" aria-label="Rango">
+          <button data-rango="1" aria-pressed="true">1 h</button>
+          <button data-rango="6">6 h</button>
+          <button data-rango="24">24 h</button>
+          <button data-rango="168">7 días</button>
+        </div>
+        <div class="grupo" role="group" aria-label="Métrica">
+          <button data-metrica="flujo" aria-pressed="true">Vehículos que pasaron</button>
+          <button data-metrica="ocupacion">En imagen (promedio)</button>
+        </div>
+        <button id="btnTabla" aria-pressed="false">Ver tabla</button>
+        <a class="boton" id="lnkCsv" href="#">Descargar CSV</a>
+      </div>
+    </div>
+    <div class="graficas">
+      <div>
+        <div class="lienzo"><canvas id="gLinea"></canvas><div class="vacio" id="vacioLinea" hidden>Todavía no hay historial en este rango.</div></div>
+        <div class="nota" id="notaLinea"></div>
+      </div>
+      <div>
+        <h2 style="margin-bottom:8px">Por categoría <span class="sub" id="txtRangoCat"></span></h2>
+        <div class="lienzo chico"><canvas id="gCats"></canvas></div>
+      </div>
+    </div>
+    <div class="tabla-wrap" id="tablaWrap" hidden><table id="tabla"></table></div>
+  </section>
+
+  <footer>Los datos se guardan por minuto en el servidor · <span id="txtServidor"></span></footer>
+</div>
+
+<script>
+"use strict";
+const CATS = ["carro", "moto", "bus", "pesado", "especial"];
+const NOMBRE_CAT = {carro: "Carro", moto: "Moto", bus: "Bus", pesado: "Pesado", especial: "Especial"};
+const PASO = {1: 60, 6: 300, 24: 900, 168: 3600};
+const NOMBRE_PASO = {60: "minuto", 300: "5 min", 900: "15 min", 3600: "hora"};
+const $ = (id) => document.getElementById(id);
+
+const st = {
+  rango: 1, metrica: "flujo", video: true, ultimo: null, tUltimo: 0, piConectada: false,
+  colorCam: {}, ordenCam: [], hist: null, hist1h: null, histHoy: null, tImgs: Date.now(),
+  tFrame: 0, gLinea: null, gCats: null,
+};
+
+// ---------- utilidades ----------
+const css = (v) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const fmtN = (n) => (n == null ? "–" : Number(n).toLocaleString("es"));
+function colorDe(nombre) {
+  // el color sigue a la cámara (no a su posición en una lista filtrada): se asigna una vez
+  if (!(nombre in st.colorCam)) st.colorCam[nombre] = Object.keys(st.colorCam).length % 4 + 1;
+  return css(`--series-${st.colorCam[nombre]}`);
+}
+function hace(seg) {
+  if (seg < 2) return "ahora";
+  if (seg < 60) return `hace ${Math.round(seg)} s`;
+  if (seg < 3600) return `hace ${Math.round(seg / 60)} min`;
+  return `hace ${Math.round(seg / 3600)} h`;
+}
+function etiquetaTiempo(ts, paso) {
+  const d = new Date(ts * 1000);
+  const hm = d.toLocaleTimeString("es", {hour: "2-digit", minute: "2-digit"});
+  return paso >= 3600 ? d.toLocaleDateString("es", {weekday: "short", day: "numeric"}) + " " + hm : hm;
+}
+
+// ---------- video con interpolación (protocolo v2: JPEG original + cajas "det" interpoladas) ----------
+// ==== INTERPOLACION (inicio) ====  (funciones puras: se prueban también fuera del navegador)
+const COLOR_CAT = ["#28aaeb", "#fac828", "#d25ac8", "#ff821e", "#eb3c46"];   // mismo orden que CATS
+const RETRASO_DEF = 1.0;        // s de retraso del video (adaptativo entre 0.4 y 2.5 s)
+const Interp = {
+  // reloj de la Pi estimado: avanza solo aunque no lleguen mensajes
+  piAhora: (cam, local) => cam.tPi + (local - cam.llegada),
+  // último cuadro con t <= T (si no hay, el más viejo)
+  cuadro(cuadros, T) {
+    let r = null;
+    for (const q of cuadros) { if (q.t <= T) r = q; else break; }
+    return r || cuadros[0] || null;
+  },
+  // cajas en el instante T, interpoladas por ID de ByteTrack entre d0 (t <= T) y d1 (t > T).
+  // Se llama con T = t del cuadro que se muestra (o el T del reloj si aún no hay cuadro).
+  cajas(dets, T) {
+    let i0 = -1;
+    for (let i = 0; i < dets.length; i++) { if (dets[i].t <= T) i0 = i; else break; }
+    const d0 = i0 >= 0 ? dets[i0] : null, d1 = dets[i0 + 1] || null;
+    if (d0 && d1 && d1.t - d0.t < 2.0) {
+      const a = (T - d0.t) / (d1.t - d0.t);
+      const porId = new Map();
+      for (const b of d1.b) if (b[5] >= 0) porId.set(b[5], b);
+      return d0.b.map((b) => {
+        const e = b[5] >= 0 ? porId.get(b[5]) : undefined;
+        if (!e) return b;                                  // solo en d0 (o sin ID): caja de d0
+        const m = a < 0.5 ? b : e;                         // etiqueta del más cercano
+        return [b[0] + (e[0] - b[0]) * a, b[1] + (e[1] - b[1]) * a,
+                b[2] + (e[2] - b[2]) * a, b[3] + (e[3] - b[3]) * a, m[4], b[5], m[6], m[7]];
+      });
+    }
+    if (d0 && T - d0.t < 1.5) return d0.b;
+    return [];
+  },
+  etiqueta: (b) => (b[6] ? `id:${b[6]} ` : "") + `${CATS[b[4]] || "?"} ${(b[7] / 100).toFixed(2)}`,
+  // retraso adaptativo: 1.5 x mediana del intervalo entre 'det', y siempre más que lo que
+  // tarda en llegar un 'det' (análisis + red) más un intervalo, limitado a 0.4-2.5 s
+  retraso(intervalos, demoras) {
+    if (intervalos.length < 3) return RETRASO_DEF;
+    const med = (v) => { const s = [...v].sort((x, y) => x - y); return s[s.length >> 1]; };
+    const mi = med(intervalos), md = demoras.length ? med(demoras) : 0;
+    return Math.min(2.5, Math.max(0.4, 1.5 * mi, mi + md + 0.15));
+  },
+};
+// ==== INTERPOLACION (fin) ====
+
+const vid = {cams: [], nombres: [], retraso: RETRASO_DEF, intervalos: [], demoras: [], rx: 0,
+             raf: 0, tPint: 0, ocultoPausado: false, tOculto: 0};
+const ahoraLocal = () => performance.now() / 1000;
+function camV(c) {
+  if (!vid.cams[c]) vid.cams[c] = {cuadros: [], dets: [], tPi: 0, llegada: 0, T: 0, tDetAnt: 0,
+                                   bmp: null, bmpSeq: -1, bmpT: null, decod: -1, tLocal: 0, total: null, conectada: true};
+  return vid.cams[c];
+}
+function marcarT(cam, t) {           // t_pi = mayor t recibido y cuándo llegó
+  if (t > cam.tPi) { cam.tPi = t; cam.llegada = ahoraLocal(); }
+}
+function podar(cam) {
+  while (cam.cuadros.length > 1 && cam.cuadros[0].t < cam.tPi - 4) cam.cuadros.shift();
+  while (cam.dets.length > 1 && cam.dets[0].t < cam.tPi - 5) cam.dets.shift();
+}
+function insertarOrdenado(lista, item) {
+  let i = lista.length;
+  while (i > 0 && lista[i - 1].t > item.t) i--;
+  if (i > 0 && lista[i - 1].s === item.s) { lista[i - 1] = item; return; }   // repetido
+  lista.splice(i, 0, item);
+}
+function recibirCuadro(buf) {
+  if (!st.video || buf.byteLength < 15) return;
+  const dv = new DataView(buf);
+  if (dv.getUint8(0) !== 1) return;
+  const c = dv.getUint8(1), s = dv.getUint32(2), t = dv.getFloat64(6);
+  const cam = camV(c);
+  insertarOrdenado(cam.cuadros, {s, t, blob: new Blob([new Uint8Array(buf, 14)], {type: "image/jpeg"})});
+  marcarT(cam, t); podar(cam);
+  cam.tLocal = Date.now(); st.tFrame = Date.now(); vid.rx++;
+  if (vid.nombres.length <= c) armarMosaico();
+}
+function recibirDet(d) {
+  if (!st.video || typeof d.c !== "number" || !Array.isArray(d.b)) return;
+  const cam = camV(d.c);
+  if (cam.tPi) {                     // para el retraso adaptativo
+    vid.demoras.push(Math.max(0, Interp.piAhora(cam, ahoraLocal()) - d.t));
+    if (vid.demoras.length > 40) vid.demoras.shift();
+  }
+  if (cam.tDetAnt && d.t > cam.tDetAnt) {
+    vid.intervalos.push(d.t - cam.tDetAnt);
+    if (vid.intervalos.length > 40) vid.intervalos.shift();
+  }
+  cam.tDetAnt = Math.max(cam.tDetAnt, d.t);
+  insertarOrdenado(cam.dets, {s: d.s, t: d.t, b: d.b});
+  marcarT(cam, d.t); podar(cam);
+}
+function vaciarVideo() {
+  vid.cams.forEach((cam) => { if (cam && cam.bmp) cam.bmp.close(); });
+  vid.cams = []; vid.intervalos = []; vid.demoras = []; vid.retraso = RETRASO_DEF;
+  vid.nombres.forEach((_, c) => { const x = $(`cv_${c}`); x && x.getContext("2d").clearRect(0, 0, x.width, x.height); });
+}
+
+// recuadros (1x1, 2x1 o 2x2) según las cámaras de la Pi
+function armarMosaico(lista) {
+  const nombres = (lista || (st.ultimo ? st.ultimo.camaras.map((c) => c.nombre) : vid.nombres)).slice(0, 4);
+  const n = Math.max(nombres.length, vid.cams.length, 1);
+  while (nombres.length < n) nombres.push(`Cam${nombres.length + 1}`);
+  if (nombres.join("\u0001") === vid.nombres.join("\u0001")) return;
+  vid.nombres = nombres;
+  const m = $("mosaico");
+  m.className = "mosaico" + (n === 1 ? " n1" : n === 2 ? " n2" : "");
+  m.innerHTML = nombres.map((_, c) => `<div class="recuadro"><canvas id="cv_${c}"></canvas>
+    <div class="rotulo"><b id="nm_${c}"></b><span id="ct_${c}"></span></div>
+    <div class="sinsenal" id="ss_${c}" hidden>Sin señal</div></div>`).join("");
+  nombres.forEach((nm, c) => { $(`nm_${c}`).textContent = nm; });
+  pintarRotulos();
+}
+function pintarRotulos() {
+  const cams = st.ultimo ? st.ultimo.camaras : [];
+  vid.nombres.forEach((_, c) => {
+    const d = cams[c], ct = $(`ct_${c}`);
+    if (ct) ct.textContent = d ? `${d.total} en imagen` : "";
+  });
+}
+
+function pintarVideo() {
+  const local = ahoraLocal(), dpr = window.devicePixelRatio || 1;
+  const cams = st.ultimo ? st.ultimo.camaras : [];
+  let alguno = false;
+  vid.nombres.forEach((_, c) => {
+    const cv = $(`cv_${c}`), cam = vid.cams[c];
+    if (!cv) return;
+    const sinSenal = (cams[c] && !cams[c].conectada) || !cam || !cam.cuadros.length ||
+                     Date.now() - cam.tLocal > 4000;
+    const ss = $(`ss_${c}`);
+    if (ss.hidden === sinSenal) ss.hidden = !sinSenal;
+    if (!cam || !cam.cuadros.length) return;
+    // 1-2) instante a mostrar (nunca retrocede salvo un salto grande del reloj)
+    let T = Interp.piAhora(cam, local) - vid.retraso;
+    if (T < cam.T && cam.T - T < 0.5) T = cam.T;
+    cam.T = T;
+    // 3) cuadro: se decodifica SOLO cuando cambia
+    const q = Interp.cuadro(cam.cuadros, T);
+    if (q && q.s !== cam.bmpSeq && q.s !== cam.decod) {
+      cam.decod = q.s;
+      createImageBitmap(q.blob).then((b) => {
+        if (cam.decod === q.s && vid.cams[c] === cam) { if (cam.bmp) cam.bmp.close(); cam.bmp = b; cam.bmpSeq = q.s; cam.bmpT = q.t; }
+        else b.close();
+      }).catch(() => { if (cam.decod === q.s) cam.decod = -1; });
+    }
+    if (!cam.bmp) return;
+    alguno = true;
+    // tamaño real del canvas (nítido en pantallas de alta densidad)
+    const W = Math.max(1, Math.round(cv.clientWidth * dpr)), H = Math.max(1, Math.round(cv.clientHeight * dpr));
+    if (cv.width !== W || cv.height !== H) { cv.width = W; cv.height = H; }
+    const ctx = cv.getContext("2d");
+    const iw = cam.bmp.width, ih = cam.bmp.height, e = Math.min(W / iw, H / ih);
+    const dw = iw * e, dh = ih * e, ox = (W - dw) / 2, oy = (H - dh) / 2;
+    ctx.fillStyle = "#000"; ctx.fillRect(0, 0, W, H);
+    ctx.drawImage(cam.bmp, ox, oy, dw, dh);
+    // 4-5) cajas interpoladas en el t del CUADRO que se ve (no en T): coinciden con la imagen
+    // y, si ese cuadro tiene 'det' con el mismo seq, la caja es exacta
+    const cajas = Interp.cajas(cam.dets, cam.bmpT != null ? cam.bmpT : T);
+    if (!cajas.length) return;
+    const fs = Math.round(10.5 * dpr);
+    ctx.font = `${fs}px system-ui, sans-serif`; ctx.textBaseline = "top";
+    ctx.lineWidth = Math.max(1, Math.round(1.5 * dpr));
+    for (const b of cajas) {
+      const col = COLOR_CAT[b[4]] || "#ffffff";
+      const x1 = ox + b[0] * dw / 10000, y1 = oy + b[1] * dh / 10000;
+      const x2 = ox + b[2] * dw / 10000, y2 = oy + b[3] * dh / 10000;
+      ctx.strokeStyle = col; ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      const txt = Interp.etiqueta(b), tw = ctx.measureText(txt).width + 6 * dpr, th = fs + 4 * dpr;
+      const ty = y1 - th >= oy ? y1 - th : y1;
+      const tx = Math.min(Math.max(x1, ox), ox + dw - tw);
+      ctx.fillStyle = col; ctx.fillRect(tx, ty, tw, th);
+      ctx.fillStyle = textoSobre(col); ctx.fillText(txt, tx + 3 * dpr, ty + 2 * dpr);
+    }
+  });
+  if (alguno && !$("avisoVideo").hidden && st.video) $("avisoVideo").hidden = true;
+}
+function textoSobre(hex) {
+  const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+  return 0.299 * r + 0.587 * g + 0.114 * b > 140 ? "#141414" : "#ffffff";
+}
+// repintado ~30 veces/s; se detiene con el video pausado o la pestaña oculta
+function bucleVideo(ts) {
+  vid.raf = 0;
+  if (!st.video || document.hidden) return;
+  vid.raf = requestAnimationFrame(bucleVideo);
+  if (ts - vid.tPint < 1000 / 31) return;
+  vid.tPint = ts;
+  pintarVideo();
+}
+function arrancarVideo() { if (!vid.raf && st.video && !document.hidden) vid.raf = requestAnimationFrame(bucleVideo); }
+setInterval(() => {                    // retraso adaptativo (cambia suave)
+  const obj = Interp.retraso(vid.intervalos, vid.demoras);
+  vid.retraso += (obj - vid.retraso) * 0.3;
+}, 1000);
+
+// pestaña oculta: no se pinta nada; si sigue oculta 20 s, se deja de pedir video
+// (si nadie más mira, la Raspberry deja de enviarlo y no gasta subida)
+function pedirVideo(si) { if (ws && ws.readyState === 1) ws.send(JSON.stringify({video: si})); }
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    const marca = vid.tOculto = Date.now();
+    setTimeout(() => {
+      if (document.hidden && vid.tOculto === marca && st.video) { vid.ocultoPausado = true; pedirVideo(false); vaciarVideo(); }
+    }, 20000);
+  } else {
+    vid.tOculto = 0;
+    if (vid.ocultoPausado) { vid.ocultoPausado = false; pedirVideo(st.video); }
+    arrancarVideo();
+  }
+});
+
+// ---------- en vivo (WebSocket) ----------
+let ws = null, espera = 1000;
+function conectar() {
+  ws = new WebSocket(`${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/ws/web`);
+  ws.binaryType = "arraybuffer";
+  ws.onopen = () => { espera = 1000; ws.send(JSON.stringify({video: st.video && !vid.ocultoPausado})); };
+  ws.onmessage = (ev) => {
+    if (typeof ev.data !== "string") return recibirCuadro(ev.data);
+    const d = JSON.parse(ev.data);
+    if (d.tipo === "det") {
+      recibirDet(d);
+    } else if (d.tipo === "pi") {
+      st.piConectada = d.conectada;
+      $("txtVisores").textContent = d.visores;
+      if (!d.conectada) { $("avisoVideo").textContent = "Raspberry desconectada"; $("avisoVideo").hidden = false; }
+      pintarEstado();
+    } else if (d.tipo === "semaforo") {
+      recibirSemaforo(d);
+    } else if (d.tipo === "datos") {
+      st.ultimo = d; st.tUltimo = Date.now(); st.piConectada = true;
+      pintarAhora();
+    }
+  };
+  ws.onclose = () => {
+    st.piConectada = false; pintarEstado();
+    $("txtPi").textContent = "Sin conexión con el servidor…";
+    setTimeout(conectar, espera); espera = Math.min(espera * 2, 15000);
+  };
+}
+$("btnVideo").onclick = () => {
+  st.video = !st.video;
+  $("btnVideo").textContent = st.video ? "Pausar video" : "Reanudar video";
+  $("btnVideo").setAttribute("aria-pressed", String(!st.video));
+  const aviso = $("avisoVideo");
+  aviso.textContent = st.video ? "Esperando video…" : "Video pausado (la Raspberry deja de enviarlo si nadie más lo ve)";
+  aviso.hidden = false;
+  if (!st.video) vaciarVideo(); else arrancarVideo();
+  pedirVideo(st.video);
+};
+
+// ---------- pintar "ahora" ----------
+function pintarEstado() {
+  const chip = $("chipPi");
+  const ok = st.piConectada && Date.now() - st.tUltimo < 10000;
+  chip.className = "chip " + (ok ? "ok" : "mal");
+  $("txtPi").textContent = ok ? "Raspberry en línea" : "Raspberry desconectada";
+  $("txtHace").textContent = st.tUltimo ? hace((Date.now() - st.tUltimo) / 1000) : "–";
+  if (st.video && st.tFrame && Date.now() - st.tFrame > 6000) {
+    $("avisoVideo").textContent = ok ? "Esperando video…" : "Raspberry desconectada";
+    $("avisoVideo").hidden = false;
+  }
+  const seg = (Date.now() - st.tImgs) / 1000;
+  if (seg >= 2) {
+    $("txtImgs").textContent = st.video && vid.rx ? `${(vid.rx / seg).toFixed(1)} img/s` : "";
+    vid.rx = 0; st.tImgs = Date.now();
+  }
+}
+function pintarAhora() {
+  const d = st.ultimo;
+  $("kTotal").textContent = fmtN(d.total);
+  $("txtTemp").textContent = d.temp != null ? `${Math.round(d.temp)} °C` : "–";
+  $("txtTemp").style.color = d.temp >= 80 ? "var(--critical)" : "";
+  $("txtFps").textContent = d.fps != null ? `${d.fps.toFixed(1)} inf/s` : "–";
+  // categorías (todas las cámaras)
+  const suma = Object.fromEntries(CATS.map((c) => [c, 0]));
+  d.camaras.forEach((c) => CATS.forEach((k) => (suma[k] += (c.por_categoria || {})[k] || 0)));
+  const max = Math.max(1, ...Object.values(suma));
+  const cont = $("catsAhora");
+  if (!cont.children.length) {
+    cont.innerHTML = CATS.map((c) => `<div class="cat"><span>${NOMBRE_CAT[c]}</span>
+      <span class="barra"><i id="b_${c}"></i></span><span class="n" id="n_${c}">0</span></div>`).join("");
+  }
+  CATS.forEach((c) => { $(`b_${c}`).style.width = `${(100 * suma[c]) / max}%`; $(`n_${c}`).textContent = suma[c]; });
+  armarMosaico(); pintarRotulos();
+  pintarCamaras();
+  pintarEstado();
+}
+function flujo1h(nombre) {
+  const c = st.hist1h && st.hist1h.camaras[nombre];
+  return c ? c.flujo_total : null;
+}
+function pintarCamaras() {
+  const d = st.ultimo;
+  const cont = $("camaras");
+  d.camaras.forEach((c) => {
+    const id = "cam_" + encodeURIComponent(c.nombre).replace(/[^a-zA-Z0-9]/g, "_");
+    let el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement("div");
+      el.className = "tarjeta cam"; el.id = id;
+      el.innerHTML = `<div class="cab" style="margin-bottom:0"><span class="nombre"><span class="muestra"></span><span class="nm"></span></span>
+        <span class="chip estado"><span class="punto"></span><span class="et-estado"></span></span></div>
+        <div class="numeros"><div><div class="val v-ahora">–</div><div class="et">en imagen</div></div>
+        <div><div class="val v-hora">–</div><div class="et">pasaron en 1 h</div></div></div>
+        <div class="detalle"></div>`;
+      el.querySelector(".nm").textContent = c.nombre;
+      cont.appendChild(el);
+    }
+    el.querySelector(".muestra").style.background = colorDe(c.nombre);
+    const chip = el.querySelector(".estado");
+    chip.className = "chip estado " + (c.conectada ? "ok" : "mal");
+    el.querySelector(".et-estado").textContent = c.conectada ? `${(c.fps || 0).toFixed(1)} an./s` : "sin señal";
+    el.querySelector(".v-ahora").textContent = fmtN(c.total);
+    el.querySelector(".v-hora").textContent = fmtN(flujo1h(c.nombre));
+    const partes = CATS.filter((k) => (c.por_categoria || {})[k]).map((k) => `${NOMBRE_CAT[k]} ${c.por_categoria[k]}`);
+    el.querySelector(".detalle").textContent = partes.length ? partes.join(" · ") : "Sin vehículos en imagen";
+  });
+}
+
+// ---------- historial ----------
+async function traer(horas, paso) {
+  const r = await fetch(`/api/historial?horas=${horas}&paso=${paso}`);
+  if (!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function actualizarKpis() {
+  try {
+    st.hist1h = await traer(1, 60);
+    $("kHora").textContent = fmtN(st.hist1h.flujo_total);
+    const medianoche = new Date(); medianoche.setHours(0, 0, 0, 0);
+    const horasHoy = Math.max((Date.now() - medianoche) / 3600000, 1 / 60);
+    const hoy = await traer(Math.min(Math.ceil(horasHoy * 4) / 4 + 0.25, 24), 900);
+    const t0 = medianoche.getTime() / 1000;
+    let total = 0;
+    Object.values(hoy.camaras).forEach((c) => c.flujo.forEach((v, i) => { if (v && hoy.ts[i] >= t0) total += v; }));
+    $("kHoy").textContent = fmtN(total);
+    if (st.ultimo) pintarCamaras();
+  } catch (e) { console.warn("KPIs:", e); }
+}
+async function actualizarHistorial() {
+  const paso = PASO[st.rango];
+  try { st.hist = await traer(st.rango, paso); } catch (e) { console.warn("historial:", e); return; }
+  pintarHistorial();
+}
+function opcionesBase() {
+  const tick = css("--text-muted"), grid = css("--grid");
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    plugins: {
+      legend: {position: "top", align: "start", labels: {color: css("--text-secondary"), boxWidth: 14, boxHeight: 3, usePointStyle: false}},
+      tooltip: {backgroundColor: css("--surface-1"), titleColor: css("--text-primary"), bodyColor: css("--text-secondary"),
+                borderColor: css("--border"), borderWidth: 1, padding: 10, boxPadding: 4},
+    },
+    scales: {
+      x: {ticks: {color: tick, maxRotation: 0, autoSkip: true, maxTicksLimit: 8}, grid: {display: false}, border: {color: grid}},
+      y: {beginAtZero: true, ticks: {color: tick, precision: 0}, grid: {color: grid}, border: {display: false}},
+    },
+  };
+}
+function pintarHistorial() {
+  const h = st.hist;
+  const paso = h.paso;
+  const etiquetas = h.ts.map((t) => etiquetaTiempo(t, paso));
+  const nombres = Object.keys(h.camaras);
+  nombres.forEach(colorDe);
+  const esFlujo = st.metrica === "flujo";
+  const datasets = nombres.map((n) => ({
+    label: n,
+    data: esFlujo ? h.camaras[n].flujo : h.camaras[n].ocupacion,
+    borderColor: colorDe(n), backgroundColor: colorDe(n),
+    borderWidth: 2, pointRadius: 0, pointHoverRadius: 5, pointHoverBorderWidth: 2,
+    pointHoverBorderColor: css("--surface-1"), tension: 0.25, spanGaps: false,
+  }));
+  $("vacioLinea").hidden = nombres.length > 0;
+  $("tituloHist").textContent = esFlujo ? `Vehículos que pasaron por ${NOMBRE_PASO[paso]}` : "Vehículos en imagen (promedio)";
+  $("notaLinea").textContent = esFlujo
+    ? "Vehículos distintos detectados (cada ID cuenta una vez). Pasa el cursor para ver los valores."
+    : "Promedio de vehículos visibles al mismo tiempo: indica qué tan congestionada está la vía.";
+  const o = opcionesBase();
+  o.interaction = {mode: "index", intersect: false};
+  o.plugins.tooltip.callbacks = {
+    label: (c) => ` ${c.dataset.label}: ${c.parsed.y == null ? "sin datos" : fmtN(c.parsed.y)}`,
+  };
+  if (!esFlujo) o.scales.y.ticks.precision = undefined;
+  if (st.gLinea) st.gLinea.destroy();
+  st.gLinea = new Chart($("gLinea"), {type: "line", data: {labels: etiquetas, datasets}, options: o, plugins: [lineaCursor]});
+
+  // categorías en el rango (una sola serie -> un solo color neutro, sin leyenda)
+  const oc = opcionesBase();
+  oc.indexAxis = "y";
+  oc.plugins.legend.display = false;
+  oc.scales = {
+    x: {beginAtZero: true, ticks: {color: css("--text-muted"), precision: 0}, grid: {color: css("--grid")}, border: {display: false}},
+    y: {ticks: {color: css("--text-secondary")}, grid: {display: false}, border: {color: css("--grid")}},
+  };
+  oc.plugins.tooltip.callbacks = {label: (c) => ` ${fmtN(c.parsed.x)} vehículos`};
+  if (st.gCats) st.gCats.destroy();
+  st.gCats = new Chart($("gCats"), {
+    type: "bar",
+    data: {labels: CATS.map((c) => NOMBRE_CAT[c]),
+           datasets: [{data: CATS.map((c) => h.categorias[c]), backgroundColor: css("--bar-neutral"),
+                       borderRadius: {topRight: 4, bottomRight: 4}, borderSkipped: "start", barThickness: 16}]},
+    options: oc,
+  });
+  $("txtRangoCat").textContent = `· ${fmtN(h.flujo_total)} en ${st.rango === 168 ? "7 días" : st.rango + " h"}`;
+  pintarTabla(etiquetas, nombres, esFlujo);
+  $("lnkCsv").href = `/api/exportar.csv?horas=${st.rango}&tz=${-new Date().getTimezoneOffset()}`;
+}
+// línea vertical bajo el cursor (crosshair)
+const lineaCursor = {
+  id: "lineaCursor",
+  afterDraw(chart) {
+    const a = chart.tooltip && chart.tooltip.getActiveElements();
+    if (!a || !a.length) return;
+    const x = a[0].element.x, {top, bottom} = chart.chartArea, ctx = chart.ctx;
+    ctx.save(); ctx.strokeStyle = css("--text-muted"); ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+    ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, bottom); ctx.stroke(); ctx.restore();
+  },
+};
+function pintarTabla(etiquetas, nombres, esFlujo) {
+  if ($("tablaWrap").hidden) return;
+  const h = st.hist;
+  const filas = h.ts.map((t, i) => `<tr><td>${etiquetaTiempo(t, h.paso)}</td>${nombres.map((n) => {
+    const v = esFlujo ? h.camaras[n].flujo[i] : h.camaras[n].ocupacion[i];
+    return `<td>${v == null ? "–" : fmtN(v)}</td>`; }).join("")}</tr>`).reverse();
+  const cab = `<tr><th>Hora</th>${nombres.map((n) => `<th>${n.replace(/[<>&]/g, "")}</th>`).join("")}</tr>`;
+  $("tabla").innerHTML = `<thead>${cab}</thead><tbody>${filas.join("")}</tbody>`;
+}
+
+// ---------- controles ----------
+document.querySelectorAll("[data-rango]").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("[data-rango]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  st.rango = Number(b.dataset.rango); actualizarHistorial();
+}));
+document.querySelectorAll("[data-metrica]").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("[data-metrica]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+  st.metrica = b.dataset.metrica; if (st.hist) pintarHistorial();
+}));
+$("btnTabla").onclick = () => {
+  const w = $("tablaWrap"); w.hidden = !w.hidden;
+  $("btnTabla").setAttribute("aria-pressed", String(!w.hidden));
+  $("btnTabla").textContent = w.hidden ? "Ver tabla" : "Ocultar tabla";
+  if (st.hist) pintarHistorial();
+};
+// tema claro/oscuro del sistema: rehacer gráficas con los colores del nuevo tema
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => { if (st.hist) pintarHistorial(); if (st.ultimo) pintarCamaras(); });
+
+$("txtServidor").textContent = location.host;
+// colores: primero el orden de las cámaras en la Raspberry, luego el historial
+fetch("/api/estado").then((r) => r.json()).then((e) => {
+  (e.camaras || []).forEach(colorDe);
+  if (!e.ultimo && (e.camaras || []).length) armarMosaico(e.camaras);   // nombres guardados en el servidor
+  if (e.ultimo) { st.ultimo = e.ultimo; st.tUltimo = e.pi_conectada ? Date.now() : 0; pintarAhora(); }
+}).catch(() => {}).finally(() => { conectar(); actualizarHistorial(); actualizarKpis(); });
+armarMosaico(); arrancarVideo();
+setInterval(pintarEstado, 1000);
+setInterval(actualizarHistorial, 60000);
+setInterval(actualizarKpis, 30000);
+
+// ============================================================================ semáforo RL
+// Llega como {"tipo":"semaforo",...} si en la Raspberry rl_zonas.json tiene "interfaz": true.
+// Si nunca llega, la sección queda oculta.
+const SEM = {ultimo: null, tLlegada: 0, hist: [], decs: [], tCtrl: null, tDec: null, armado: false};
+const SEM_CALLES = ["N", "S", "E", "O"];
+const SEM_NOMBRE = {N: "Norte", S: "Sur", E: "Este", O: "Oeste"};
+const SEM_VIA = {N: "Av. Universitaria", S: "Av. Universitaria", E: "Dulanto", O: "La Mar"};
+const SEM_COL_FASE = ["#3987e5", "#d95926", "#16a394", "#4fb3d9", "#8e6ad8", "#d1497b"];
+const SEM_CTL = {
+  agente: ["Agente RL", "--good", "El modelo DDQN decide qué fase va en verde."],
+  recuperando: ["Recuperando", "--series-1", "Volvieron los conteos: el agente retoma en unos segundos."],
+  respaldo: ["Ciclo fijo", "--warning", "Respaldo: no llegan conteos de YOLO, el semáforo usa su plan fijo."],
+};
+const SVGNS = "http://www.w3.org/2000/svg";
+function cssVar(n) { return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function semEsc(t) { return String(t).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c])); }
+function semColorFase(id, ids) { const i = ids.indexOf(id); return i < 0 ? cssVar("--text-muted") : SEM_COL_FASE[i % SEM_COL_FASE.length]; }
+function svgEl(tag, attrs, padre) {
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (padre) padre.appendChild(e);
+  return e;
+}
+
+function semArmarCruce() {
+  const s = $("svgCruce"), W = 440, H = 360, cx = 220, cy = 180, a = 40;
+  s.innerHTML = "";
+  const via = {fill: "var(--via)"};
+  svgEl("rect", {x: 0, y: cy - a, width: W, height: 2 * a, ...via}, s);
+  svgEl("rect", {x: cx - a, y: 0, width: 2 * a, height: H, ...via}, s);
+  const borde = {stroke: "var(--via-borde)", "stroke-width": 1};
+  for (const [x1, y1, x2, y2] of [[0, cy - a, cx - a, cy - a], [cx + a, cy - a, W, cy - a], [0, cy + a, cx - a, cy + a],
+      [cx + a, cy + a, W, cy + a], [cx - a, 0, cx - a, cy - a], [cx + a, 0, cx + a, cy - a], [cx - a, cy + a, cx - a, H],
+      [cx + a, cy + a, cx + a, H]]) svgEl("line", {x1, y1, x2, y2, ...borde}, s);
+  const eje = {stroke: "var(--text-muted)", "stroke-width": 1.4, "stroke-dasharray": "6 6", opacity: .6};
+  svgEl("line", {x1: 0, y1: cy, x2: cx - a - 16, y2: cy, ...eje}, s);
+  svgEl("line", {x1: cx + a + 16, y1: cy, x2: W, y2: cy, ...eje}, s);
+  svgEl("line", {x1: cx, y1: 0, x2: cx, y2: cy - a - 16, ...eje}, s);
+  svgEl("line", {x1: cx, y1: cy + a + 16, x2: cx, y2: H, ...eje}, s);
+  for (let i = 0; i < 6; i++) {                     // pasos peatonales
+    const t = -a + i * (2 * a / 6) + 3, z = {fill: "var(--via-borde)"};
+    svgEl("rect", {x: cx + t, y: cy - a - 13, width: 7, height: 9, ...z}, s);
+    svgEl("rect", {x: cx + t, y: cy + a + 4, width: 7, height: 9, ...z}, s);
+    svgEl("rect", {x: cx - a - 13, y: cy + t, width: 9, height: 7, ...z}, s);
+    svgEl("rect", {x: cx + a + 4, y: cy + t, width: 9, height: 7, ...z}, s);
+  }
+  // carril de entrada (circulación por la derecha), línea de parada, flecha y semáforo de cada calle
+  const geo = {
+    N: {carril: [cx - a, 0, a, cy - a - 16], parada: [cx - a, cy - a - 17, cx, cy - a - 17], flecha: [cx - a / 2, cy - a - 46, 0, 1],
+        cab: [cx - a - 14 - 62, cy - a - 14 - 24], txt: [cx - a - 14, 22, "end"]},
+    E: {carril: [cx + a + 16, cy - a, W - cx - a - 16, a], parada: [cx + a + 17, cy - a, cx + a + 17, cy], flecha: [cx + a + 46, cy - a / 2, -1, 0],
+        cab: [cx + a + 14, cy - a - 14 - 24], txt: [cx + a + 14, 22, "start"]},
+    S: {carril: [cx, cy + a + 16, a, H - cy - a - 16], parada: [cx, cy + a + 17, cx + a, cy + a + 17], flecha: [cx + a / 2, cy + a + 46, 0, -1],
+        cab: [cx + a + 14, cy + a + 14], txt: [cx + a + 14, cy + a + 62, "start"]},
+    O: {carril: [0, cy, cx - a - 16, a], parada: [cx - a - 17, cy, cx - a - 17, cy + a], flecha: [cx - a - 46, cy + a / 2, 1, 0],
+        cab: [cx - a - 14 - 62, cy + a + 14], txt: [cx - a - 14, cy + a + 62, "end"]},
+  };
+  SEM.svg = {};
+  for (const c of SEM_CALLES) {
+    const g = geo[c], o = {};
+    const [x, y, w, h] = g.carril;
+    o.carril = svgEl("rect", {x, y, width: w, height: h, fill: "transparent"}, s);
+    const [fx, fy, dx, dy] = g.flecha, px = -dy, py = dx, L = 26;
+    const pt = (u, v) => `${fx + dx * u + px * v},${fy + dy * u + py * v}`;
+    o.flecha = svgEl("polygon", {points: [pt(-L / 2, -3), pt(L / 2 - 10, -3), pt(L / 2 - 10, -9), pt(L / 2, 0),
+      pt(L / 2 - 10, 9), pt(L / 2 - 10, 3), pt(-L / 2, 3)].join(" "), fill: "transparent"}, s);
+    const [x1, y1, x2, y2] = g.parada;
+    o.parada = svgEl("line", {x1, y1, x2, y2, stroke: "var(--text-muted)", "stroke-width": 3}, s);
+    const [hx, hy] = g.cab;
+    svgEl("rect", {x: hx, y: hy, width: 62, height: 24, rx: 12, fill: "var(--cabeza)"}, s);
+    o.lamparas = {};
+    "RAV".split("").forEach((l, j) => {
+      o.lamparas[l] = svgEl("circle", {cx: hx + 13 + j * 18, cy: hy + 12, r: 7, fill: "var(--lampara)"}, s);
+    });
+    const [tx, ty, anc] = g.txt;
+    const t = svgEl("text", {x: tx, y: ty, "text-anchor": anc, "font-size": 14, "font-weight": 600, fill: "var(--text-primary)"}, s);
+    t.textContent = `${c} · ${SEM_NOMBRE[c]}`;
+    o.sub = svgEl("text", {x: tx, y: ty + 17, "text-anchor": anc, "font-size": 11.5, fill: "var(--text-muted)"}, s);
+    o.cola = svgEl("text", {x: tx, y: ty + 35, "text-anchor": anc, "font-size": 12.5, fill: "var(--text-secondary)"}, s);
+    o.luz = svgEl("text", {x: tx, y: ty + 52, "text-anchor": anc, "font-size": 12.5, fill: "var(--text-secondary)"}, s);
+    SEM.svg[c] = o;
+  }
+  SEM.svgAviso = svgEl("g", {}, s);
+  SEM.armado = true;
+}
+
+function recibirSemaforo(d) {
+  SEM.ultimo = d; SEM.tLlegada = Date.now();
+  const est = d.estado;
+  if (d.conectado && est) {
+    if (est.t !== SEM.tCtrl) { SEM.tCtrl = est.t; SEM.hist.push([Date.now() / 1000, est.fase, est.control, est.etapa]); }
+    const dec = est.decision;
+    if (dec && dec.t !== SEM.tDec) {
+      SEM.tDec = dec.t;
+      SEM.decs.push({...dec, hora: Date.now() / 1000 - Math.max(0, est.t - dec.t)});
+      if (SEM.decs.length > 40) SEM.decs.shift();
+    }
+    const lim = Date.now() / 1000 - 15 * 60 - 5;
+    while (SEM.hist.length && SEM.hist[0][0] < lim) SEM.hist.shift();
+  }
+  pintarSemaforo();
+}
+
+function semResumen() {
+  const d = SEM.ultimo;
+  if (!d) return ["Sin datos", "--text-muted", "Todavía no llega información del semáforo."];
+  if (!st.piConectada) return ["Sin Raspberry", "--critical", "La Raspberry no está conectada: no se sabe qué hace el semáforo."];
+  if (!d.conectado) return ["Desconectado", "--critical", "El semáforo no está conectado al conteo" + (d.motivo ? ` (${d.motivo}).` : ".")];
+  const edad = (d.edad || 0) + (Date.now() - SEM.tLlegada) / 1000;
+  if (edad > 6) return ["Sin datos", "--critical", `Hace ${Math.round(edad)} s que no llega el estado del semáforo.`];
+  if (!d.estado) return ["Conectado", "--text-muted", "Conectado, pero sin detalle: en la Pi pon enviar_luces = true en semaforo/pi.json."];
+  return SEM_CTL[d.estado.control] || [String(d.estado.control), "--text-muted", ""];
+}
+
+function pintarSemaforo() {
+  const d = SEM.ultimo;
+  $("secSem").hidden = !d; $("chipSem").hidden = !d;
+  if (!d) return;
+  if (!SEM.armado) semArmarCruce();
+  const [texto, colVar, explic] = semResumen();
+  const fresco = !["Sin Raspberry", "Desconectado", "Sin datos"].includes(texto);
+  const est = fresco && d.estado ? d.estado : null;
+  const cfg = (est && est.config) || {};
+  if (cfg.fases && cfg.fases.length) SEM.cfgUlt = cfg;   // se recuerda para la línea de tiempo y la tabla
+  const fases = {}; (cfg.fases || []).forEach(f => fases[f.id] = f);
+  const ids = (cfg.fases || []).map(f => f.id);
+  const fasesU = {}; ((SEM.cfgUlt || {}).fases || []).forEach(f => fasesU[f.id] = f);
+  const idsU = ((SEM.cfgUlt || {}).fases || []).map(f => f.id);
+  const orden = cfg.calles || SEM_CALLES;
+  const conteos = {}, rojos = {};
+  orden.forEach((c, i) => { if (est && est.conteos) conteos[c] = est.conteos[i]; if (est && est.rojo) rojos[c] = est.rojo[i]; });
+  const col = cssVar(colVar);
+  // cabecera y chip
+  $("txtSem").textContent = texto; $("chipSem").querySelector(".punto").style.background = col; $("chipSem").title = explic;
+  $("txtSemCtl").textContent = texto; $("chipSemCtl").querySelector(".punto").style.background = col;
+  let aviso = fresco && est ? "" : explic;
+  if (fresco && d.conectado && !d.enviando) aviso = `YOLO no está mandando conteos al semáforo (${d.motivo || "sin motivo"}). A los 15 s el semáforo pasa solo a su ciclo fijo de respaldo.`;
+  $("semAviso").textContent = aviso; $("semAviso").hidden = !aviso;
+  // datos
+  $("semCtl").textContent = texto; $("semCtl").style.color = colVar === "--text-muted" ? "" : col; $("semCtlDet").textContent = explic;
+  if (est) {
+    const f = fases[est.fase] || {}, cf = semColorFase(est.fase, ids);
+    $("semFase").textContent = f.nombre || `Fase ${est.fase}`;
+    $("semFase").style.color = est.etapa === "verde" ? cf : cssVar("--warning");
+    $("semFaseDet").textContent = est.etapa === "verde"
+      ? `En verde hace ${est.t_fase} s · mínimo ${f.verde_min_s} s` + (f.verde_max_s ? `, máximo ${f.verde_max_s} s` : "")
+      : `Cambiando: ámbar ${cfg.ambar_s || 3} s + despeje; luego verde`;
+    const prox = est.prox_decision_s | 0, total = Math.max(1, ((est.decision || {}).paso_s) | 0 || 10);
+    $("semProx").textContent = `en ${prox} s`;
+    $("semProg").style.width = `${Math.max(0, Math.min(100, 100 * (1 - prox / total)))}%`;
+    $("semProg").style.background = cf;
+    $("semConteos").textContent = SEM_CALLES.filter(c => c in conteos).map(c => `${c} ${conteos[c]}`).join("  ") || "–";
+    $("semConteos").style.color = d.enviando ? "" : cssVar("--critical");
+    $("semConteosDet").textContent = est.edad_conteos_s != null ? `de hace ${est.edad_conteos_s} s (YOLO → semáforo)` : "todavía no llegan";
+  } else {
+    for (const id of ["semFase", "semProx", "semConteos"]) { $(id).textContent = "–"; $(id).style.color = ""; }
+    $("semFaseDet").textContent = ""; $("semConteosDet").textContent = ""; $("semProg").style.width = "0";
+  }
+  // cruce
+  const luces = fresco ? d.luces : null;
+  const colLuz = {V: cssVar("--good"), A: cssVar("--warning"), R: cssVar("--critical")};
+  for (const c of SEM_CALLES) {
+    const o = SEM.svg[c], luz = luces ? luces[c] : null;
+    for (const l of "RAV") {
+      o.lamparas[l].setAttribute("fill", luz === l ? colLuz[l] : "var(--lampara)");
+      o.lamparas[l].style.filter = luz === l ? `drop-shadow(0 0 5px ${colLuz[l]})` : "";
+    }
+    const paso = luz === "V" || luz === "A";
+    o.carril.setAttribute("fill", paso ? colLuz[luz] : "transparent"); o.carril.setAttribute("fill-opacity", paso ? .16 : 0);
+    o.flecha.setAttribute("fill", paso ? colLuz[luz] : "transparent"); o.flecha.setAttribute("fill-opacity", .75);
+    o.parada.setAttribute("stroke", luz ? colLuz[luz] : "var(--text-muted)");
+    o.sub.textContent = SEM_VIA[c] + ((d.calles || {})[c] ? ` · ${d.calles[c]}` : "");
+    o.cola.textContent = c in conteos ? `${conteos[c]} vehículos en cola` : "";
+    o.luz.textContent = luz === "R" ? (rojos[c] ? `en rojo hace ${rojos[c]} s` : "en rojo") : luz === "V" ? "con paso" : luz === "A" ? "ámbar" : "";
+    o.luz.setAttribute("fill", luz ? colLuz[luz] : "var(--text-muted)");
+  }
+  SEM.svgAviso.innerHTML = "";
+  if (!luces) {
+    const msg = fresco ? "Sin luces" : texto;
+    svgEl("rect", {x: 120, y: 160, width: 200, height: 40, rx: 10, fill: "var(--surface-1)", stroke: "var(--border)"}, SEM.svgAviso);
+    const t = svgEl("text", {x: 220, y: 185, "text-anchor": "middle", "font-size": 13, "font-weight": 600, fill: "var(--text-secondary)"}, SEM.svgAviso);
+    t.textContent = msg;
+  }
+  // decisión
+  const dec = est && est.decision;
+  if (dec && ids.length) {
+    const q = dec.q || [], m = dec.mascara || [], lo = Math.min(...q), hi = Math.max(...q);
+    $("semQ").innerHTML = ids.map((id, i) => {
+      const v = q[i], perm = i >= m.length || m[i], el = id === dec.ejecutada, an = dec.anulada && id === dec.pedida;
+      const cls = el ? "el" : an ? "an" : !perm ? "np" : "";
+      const tag = el ? "elegida" : an ? "pedida · anulada" : !perm ? "no permitida" : "";
+      const frac = hi > lo ? (v - lo) / (hi - lo) : 1;
+      return `<div class="qf ${cls}"><span class="m" style="background:${semColorFase(id, ids)}"></span>` +
+        `<span class="n">${semEsc(fases[id].nombre)}</span><span class="b"><i style="width:${Math.max(3, frac * 100)}%"></i></span>` +
+        `<span class="v">${v == null ? "–" : v.toFixed(2).replace(".", ",")}</span><span>${tag ? `<span class="tag">${tag}</span>` : ""}</span></div>`;
+    }).join("");
+    const ej = (fases[dec.ejecutada] || {}).nombre || "?";
+    let txt = `${dec.quien === "agente" ? "El agente" : "El ciclo fijo"} ${dec.cambio ? "cambió a" : "mantuvo"} ${ej} por ${dec.paso_s} s.`;
+    if (dec.anulada) txt += ` Pidió ${(fases[dec.pedida] || {}).nombre || "?"}, pero no estaba permitida (regla de seguridad).`;
+    if (dec.quien !== "agente") txt += " Los valores Q son solo referencia.";
+    $("semDecTxt").textContent = txt;
+    $("semDecHace").textContent = `hace ${Math.max(0, est.t - dec.t)} s`;
+  } else {
+    $("semQ").innerHTML = ""; $("semDecTxt").textContent = est ? "Aún no hay decisiones." : "–"; $("semDecHace").textContent = "";
+  }
+  // tabla
+  const filas = SEM.decs.slice().reverse().map(x => {
+    const ej = (fasesU[x.ejecutada] || {}).nombre || x.ejecutada;
+    const quien = x.quien === "agente" ? `<span style="color:var(--good)">Agente</span>` : `<span style="color:var(--warning)">Ciclo fijo</span>`;
+    const res = (x.cambio ? "→ " : "= ") + semEsc(ej) + (x.anulada ? " (anulada)" : "");
+    return `<tr><td>${new Date(x.hora * 1000).toLocaleTimeString("es-PE", {hour12: false})}</td><td>${quien}</td><td>${res}</td><td>${x.paso_s} s</td></tr>`;
+  }).join("");
+  const tb = $("semTabla").tBodies[0];
+  if (tb.dataset.k !== filas) { tb.innerHTML = filas || `<tr><td colspan="4" style="text-align:left;color:var(--text-muted)">Se llena con cada decisión</td></tr>`; tb.dataset.k = filas; }
+  // leyenda (una vez por configuración)
+  const kLey = idsU.join(",");
+  if ($("semLeyenda").dataset.k !== kLey && idsU.length) {
+    $("semLeyenda").dataset.k = kLey;
+    $("semLeyenda").innerHTML = idsU.map(id => `<span><i style="background:${semColorFase(id, idsU)}"></i>${semEsc(fasesU[id].nombre)}</span>`).join("") +
+      `<span><i style="background:var(--warning);opacity:.6"></i>Cambio</span>` +
+      `<span><i style="background:var(--good)"></i>Agente RL</span><span><i style="background:var(--warning)"></i>Ciclo fijo</span>` +
+      `<span><i style="background:var(--series-1)"></i>Recuperando</span>`;
+  }
+  SEM.fases = fasesU; SEM.ids = idsU;
+  pintarLineaSem();
+}
+
+function pintarLineaSem() {
+  const cv = $("cvSemLinea"), r = cv.getBoundingClientRect();
+  if (!r.width) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(r.width * dpr) || cv.height !== Math.round(r.height * dpr)) {
+    cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  }
+  const g = cv.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.clearRect(0, 0, r.width, r.height);
+  const ahora = Date.now() / 1000, VENT = 15 * 60, t0 = ahora - VENT, izq = 92, ancho = Math.max(10, r.width - izq - 4);
+  const x = t => izq + (t - t0) / VENT * ancho;
+  g.font = "12px system-ui, sans-serif"; g.textBaseline = "middle";
+  const filas = [["Fase en verde", 4, 28], ["Control", 40, 12]];
+  for (const [n, y, h] of filas) {
+    g.fillStyle = cssVar("--text-muted"); g.textAlign = "right"; g.fillText(n, izq - 10, y + h / 2);
+    g.fillStyle = cssVar("--surface-2"); g.fillRect(izq, y, ancho, h);
+  }
+  const hist = SEM.hist.filter(h => h[0] >= t0 - 3);
+  const cCtl = {agente: cssVar("--good"), recuperando: cssVar("--series-1"), respaldo: cssVar("--warning")};
+  hist.forEach((h, i) => {
+    const fin = Math.min(i + 1 < hist.length ? hist[i + 1][0] : ahora, h[0] + 3);
+    const xa = Math.max(izq, x(h[0])), xb = Math.min(izq + ancho, x(fin));
+    if (xb <= xa) return;
+    g.globalAlpha = h[3] === "verde" ? 1 : .6;
+    g.fillStyle = h[3] === "verde" ? semColorFase(h[1], SEM.ids) : cssVar("--warning");
+    g.fillRect(xa, 4, xb - xa + .6, 28);
+    g.globalAlpha = 1;
+    g.fillStyle = cCtl[h[2]] || cssVar("--text-muted");
+    g.fillRect(xa, 40, xb - xa + .6, 12);
+  });
+  g.fillStyle = cssVar("--text-muted"); g.textAlign = "center";
+  for (let t = Math.ceil(t0 / 300) * 300; t <= ahora; t += 300) {
+    const xx = x(t);
+    if (xx > izq + ancho - 60) break;
+    g.fillRect(xx, 56, 1, 4);
+    g.fillText(new Date(t * 1000).toLocaleTimeString("es-PE", {hour: "2-digit", minute: "2-digit", hour12: false}), xx, 70);
+  }
+  g.textAlign = "right"; g.fillText("ahora", izq + ancho, 70);
+  if (!hist.length) { g.textAlign = "center"; g.fillText("Se llena a medida que llegan datos", izq + ancho / 2, 18); }
+}
+setInterval(() => { if (SEM.ultimo) pintarSemaforo(); }, 1000);
+window.addEventListener("resize", () => { if (SEM.ultimo) pintarLineaSem(); });
+</script>
+</body>
+</html>

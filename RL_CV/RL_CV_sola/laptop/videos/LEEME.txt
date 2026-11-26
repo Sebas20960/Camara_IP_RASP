@@ -1,0 +1,8 @@
+Pon aqui tus videos de prueba (.mp4), uno por camara (maximo 4, en orden alfabetico:
+prueba_1.mp4, prueba_2.mp4, ...).
+
+Si esta carpeta no tiene ningun .mp4, iniciar_camaras.bat usa los de
+V_final_final\laptop\videos (la carpeta de dos niveles arriba).
+
+Para reducir videos grandes (p. ej. de YouTube) a 640 px y 10 FPS:
+    python ..\preparar_videos.py mi_video.mp4 --salida .
